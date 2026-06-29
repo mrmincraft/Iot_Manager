@@ -48,6 +48,15 @@ import 'package:iot_manager/domain/repositories/protocol_repository.dart';
 import 'package:iot_manager/domain/repositories/topic_repository.dart';
 import 'package:iot_manager/domain/repositories/user_settings_repository.dart';
 import 'package:iot_manager/presentation/viewmodels/base_viewmodel.dart';
+import 'package:iot_manager/domain/usecases/protocol_usecases.dart';
+import 'package:iot_manager/domain/usecases/certificate_usecases.dart';
+import 'package:iot_manager/domain/usecases/connection_usecases.dart';
+import 'package:iot_manager/domain/usecases/topic_usecases.dart';
+import 'package:iot_manager/domain/usecases/message_usecases.dart';
+import 'package:iot_manager/domain/usecases/user_settings_usecases.dart';
+import 'package:iot_manager/domain/usecases/dashboard_usecases.dart';
+import 'package:iot_manager/domain/usecases/log_usecases.dart';
+import 'package:iot_manager/domain/usecases/usecase.dart';
 
 final getIt = GetIt.instance;
 
@@ -189,13 +198,138 @@ Future<void> setupServiceLocator() async {
   // DOMAIN LAYER: UseCases (Factories)
   // ============================================================
   
-  // NOTE: UseCases will be registered here as factories
-  // Example pattern:
-  // getIt.registerFactory<GetAllProtocolsUseCase>(
-  //   () => GetAllProtocolsUseCase(
-  //     getIt<ProtocolRepository>(),
-  //   ),
-  // );
+  // === Protocol UseCases ===
+  getIt.registerFactory<GetAllProtocolsUseCase>(
+    () => GetAllProtocolsUseCase(getIt<ProtocolRepository>()),
+  );
+  getIt.registerFactory<GetProtocolByIdUseCase>(
+    () => GetProtocolByIdUseCase(getIt<ProtocolRepository>()),
+  );
+  getIt.registerFactory<CreateProtocolUseCase>(
+    () => CreateProtocolUseCase(getIt<ProtocolRepository>()),
+  );
+  getIt.registerFactory<UpdateProtocolUseCase>(
+    () => UpdateProtocolUseCase(getIt<ProtocolRepository>()),
+  );
+  getIt.registerFactory<DeleteProtocolUseCase>(
+    () => DeleteProtocolUseCase(getIt<ProtocolRepository>()),
+  );
+  getIt.registerFactory<GetProtocolsByTypeUseCase>(
+    () => GetProtocolsByTypeUseCase(getIt<ProtocolRepository>()),
+  );
+  
+  // === Certificate UseCases ===
+  getIt.registerFactory<GetAllCertificatesUseCase>(
+    () => GetAllCertificatesUseCase(getIt<CertificateRepository>()),
+  );
+  getIt.registerFactory<GetCertificateByIdUseCase>(
+    () => GetCertificateByIdUseCase(getIt<CertificateRepository>()),
+  );
+  getIt.registerFactory<CreateCertificateUseCase>(
+    () => CreateCertificateUseCase(getIt<CertificateRepository>()),
+  );
+  getIt.registerFactory<UpdateCertificateUseCase>(
+    () => UpdateCertificateUseCase(getIt<CertificateRepository>()),
+  );
+  getIt.registerFactory<DeleteCertificateUseCase>(
+    () => DeleteCertificateUseCase(getIt<CertificateRepository>()),
+  );
+  
+  // === Connection UseCases ===
+  getIt.registerFactory<GetAllConnectionsUseCase>(
+    () => GetAllConnectionsUseCase(getIt<ConnectionRepository>()),
+  );
+  getIt.registerFactory<GetConnectionByIdUseCase>(
+    () => GetConnectionByIdUseCase(getIt<ConnectionRepository>()),
+  );
+  getIt.registerFactory<CreateConnectionUseCase>(
+    () => CreateConnectionUseCase(getIt<ConnectionRepository>()),
+  );
+  getIt.registerFactory<UpdateConnectionUseCase>(
+    () => UpdateConnectionUseCase(getIt<ConnectionRepository>()),
+  );
+  getIt.registerFactory<DeleteConnectionUseCase>(
+    () => DeleteConnectionUseCase(getIt<ConnectionRepository>()),
+  );
+  
+  // === Topic UseCases ===
+  getIt.registerFactory<GetAllTopicsUseCase>(
+    () => GetAllTopicsUseCase(getIt<TopicRepository>()),
+  );
+  getIt.registerFactory<GetTopicByIdUseCase>(
+    () => GetTopicByIdUseCase(getIt<TopicRepository>()),
+  );
+  getIt.registerFactory<CreateTopicUseCase>(
+    () => CreateTopicUseCase(getIt<TopicRepository>()),
+  );
+  getIt.registerFactory<UpdateTopicUseCase>(
+    () => UpdateTopicUseCase(getIt<TopicRepository>()),
+  );
+  getIt.registerFactory<DeleteTopicUseCase>(
+    () => DeleteTopicUseCase(getIt<TopicRepository>()),
+  );
+  
+  // === Message UseCases ===
+  getIt.registerFactory<GetAllMessagesUseCase>(
+    () => GetAllMessagesUseCase(getIt<MessageRepository>()),
+  );
+  getIt.registerFactory<GetMessageByIdUseCase>(
+    () => GetMessageByIdUseCase(getIt<MessageRepository>()),
+  );
+  getIt.registerFactory<CreateMessageUseCase>(
+    () => CreateMessageUseCase(getIt<MessageRepository>()),
+  );
+  getIt.registerFactory<UpdateMessageUseCase>(
+    () => UpdateMessageUseCase(getIt<MessageRepository>()),
+  );
+  getIt.registerFactory<DeleteMessageUseCase>(
+    () => DeleteMessageUseCase(getIt<MessageRepository>()),
+  );
+  
+  // === User Settings UseCases ===
+  getIt.registerFactory<GetUserSettingsUseCase>(
+    () => GetUserSettingsUseCase(getIt<UserSettingsRepository>()),
+  );
+  getIt.registerFactory<GetUserSettingsByIdUseCase>(
+    () => GetUserSettingsByIdUseCase(getIt<UserSettingsRepository>()),
+  );
+  getIt.registerFactory<UpdateUserSettingsUseCase>(
+    () => UpdateUserSettingsUseCase(getIt<UserSettingsRepository>()),
+  );
+  
+  // === Dashboard UseCases ===
+  getIt.registerFactory<GetAllDashboardsUseCase>(
+    () => GetAllDashboardsUseCase(getIt<DashboardRepository>()),
+  );
+  getIt.registerFactory<GetDashboardByIdUseCase>(
+    () => GetDashboardByIdUseCase(getIt<DashboardRepository>()),
+  );
+  getIt.registerFactory<CreateDashboardUseCase>(
+    () => CreateDashboardUseCase(getIt<DashboardRepository>()),
+  );
+  getIt.registerFactory<UpdateDashboardUseCase>(
+    () => UpdateDashboardUseCase(getIt<DashboardRepository>()),
+  );
+  getIt.registerFactory<DeleteDashboardUseCase>(
+    () => DeleteDashboardUseCase(getIt<DashboardRepository>()),
+  );
+  
+  // === Log Entry UseCases ===
+  getIt.registerFactory<GetAllLogEntriesUseCase>(
+    () => GetAllLogEntriesUseCase(getIt<LogRepository>()),
+  );
+  getIt.registerFactory<GetLogEntryByIdUseCase>(
+    () => GetLogEntryByIdUseCase(getIt<LogRepository>()),
+  );
+  getIt.registerFactory<CreateLogEntryUseCase>(
+    () => CreateLogEntryUseCase(getIt<LogRepository>()),
+  );
+  getIt.registerFactory<UpdateLogEntryUseCase>(
+    () => UpdateLogEntryUseCase(getIt<LogRepository>()),
+  );
+  getIt.registerFactory<DeleteLogEntryUseCase>(
+    () => DeleteLogEntryUseCase(getIt<LogRepository>()),
+  );
   
   // ============================================================
   // PRESENTATION LAYER: ViewModels (Factories)
