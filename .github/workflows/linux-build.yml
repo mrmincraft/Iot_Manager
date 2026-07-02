@@ -1,0 +1,171 @@
+name: Linux Build
+
+on:
+  push:
+    branches: [ main, develop ]
+    tags: 
+      - 'v*'
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        build-type: [debug, release]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.16.0'
+        channel: 'stable'
+
+    - name: Enable Linux desktop
+      run: flutter config --enable-linux-desktop
+
+    - name: Install Linux dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          cmake \
+          git \
+          pkg-config \
+          libgtk-3-dev \
+          libxss-dev \
+          libgconf-2-4
+
+    - name: Run flutter doctor
+      run: flutter doctor -v
+
+    - name: Get dependencies
+      run: flutter pub get
+
+    - name: Run tests
+      run: flutter test --coverage
+      continue-on-error: true
+
+    - name: Build Linux ${{ matrix.build-type }}
+      run: |
+        if [ "${{ matrix.build-type }}" == "debug" ]; then
+          flutter build linux --debug
+        else
+          flutter build linux --release
+        fi
+
+    - name: Create tarball
+      if: matrix.build-type == 'release'
+      run: |
+        cd build/linux/x64/release
+        tar -czf iot_manager-0.1.0-alpha-linux-x64.tar.gz bundle/
+        sha256sum iot_manager-0.1.0-alpha-linux-x64.tar.gz > iot_manager-0.1.0-alpha-linux-x64.tar.gz.sha256
+
+    - name: Upload build artifact (debug)
+      if: matrix.build-type == 'debug'
+      uses: actions/upload-artifact@v3
+      with:
+        name: iot_manager-debug-linux
+        path: build/linux/x64/debug/bundle/
+        retention-days: 7
+
+    - name: Upload build artifact (release)
+      if: matrix.build-type == 'release'
+      uses: actions/upload-artifact@v3
+      with:
+        name: iot_manager-release-linux
+        path: build/linux/x64/release/bundle/
+        retention-days: 30
+
+    - name: Upload tarball
+      if: matrix.build-type == 'release'
+      uses: actions/upload-artifact@v3
+      with:
+        name: iot_manager-release-tarball
+        path: |
+          build/linux/x64/release/iot_manager-0.1.0-alpha-linux-x64.tar.gz
+          build/linux/x64/release/iot_manager-0.1.0-alpha-linux-x64.tar.gz.sha256
+        retention-days: 30
+
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.16.0'
+        channel: 'stable'
+
+    - name: Enable Linux desktop
+      run: flutter config --enable-linux-desktop
+
+    - name: Get dependencies
+      run: flutter pub get
+
+    - name: Run all tests
+      run: flutter test
+
+    - name: Upload coverage
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage/lcov.info
+        fail_ci_if_error: false
+
+  release:
+    needs: [build-linux, test]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Download release tarball
+      uses: actions/download-artifact@v3
+      with:
+        name: iot_manager-release-tarball
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          iot_manager-0.1.0-alpha-linux-x64.tar.gz
+          iot_manager-0.1.0-alpha-linux-x64.tar.gz.sha256
+        body: |
+          # IoT Manager v0.1.0-alpha Release
+          
+          ## Download
+          - Linux x64: `iot_manager-0.1.0-alpha-linux-x64.tar.gz`
+          
+          ## Installation
+          ```bash
+          tar -xzf iot_manager-0.1.0-alpha-linux-x64.tar.gz
+          ./bundle/iot_manager
+          ```
+          
+          ## Changelog
+          - Foundation layer with clean architecture
+          - SQLite database with 9 tables
+          - Plugin architecture framework
+          - Comprehensive test coverage (10,400+ lines)
+          - Ready for MQTT plugin integration
+          
+          ## Known Issues
+          - Phase 12 (MQTT plugin) pending implementation
+          - UI/UX enhancements planned for Phase 2
+          
+          ## Verification
+          ```bash
+          sha256sum -c iot_manager-0.1.0-alpha-linux-x64.tar.gz.sha256
+          ```
+        draft: false
+        prerelease: true

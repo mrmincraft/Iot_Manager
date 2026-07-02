@@ -2,22 +2,27 @@
 // Implémentation de la gestion des paramètres utilisateur
 
 import 'dart:convert';
+import 'package:iot_manager/core/events/event_bus.dart';
 import 'package:iot_manager/core/utils/result.dart';
 import 'package:iot_manager/data/datasources/local/user_settings_local_datasource.dart';
 import 'package:iot_manager/data/models/user_settings_model.dart';
 import 'package:iot_manager/domain/entities/user_settings.dart';
+import 'package:iot_manager/domain/events/user_settings_events.dart';
 import 'package:iot_manager/domain/repositories/user_settings_repository.dart';
 
 class UserSettingsRepositoryImpl implements UserSettingsRepository {
   final UserSettingsLocalDataSource _localDataSource;
+  final EventBus _eventBus;
 
-  UserSettingsRepositoryImpl(this._localDataSource);
+  UserSettingsRepositoryImpl(this._localDataSource, this._eventBus);
 
   @override
   Future<Result<UserSettings, Exception>> getUserSettings(String userId) async {
     try {
       final model = await _localDataSource.getUserSettings(userId);
-      return Result.success(_mapModelToEntity(model));
+      final settings = _mapModelToEntity(model);
+      await _eventBus.publish(UserSettingsRetrievedEvent(settings));
+      return Result.success(settings);
     } catch (e) {
       return Result.failure(e as Exception);
     }
@@ -28,6 +33,7 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
     try {
       final model = _mapEntityToModel(settings);
       await _localDataSource.createUserSettings(model);
+      await _eventBus.publish(UserSettingsUpdatedEvent(settings: settings));
       return Result.success(settings);
     } catch (e) {
       return Result.failure(e as Exception);
@@ -37,8 +43,17 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
   @override
   Future<Result<UserSettings, Exception>> updateUserSettings(UserSettings settings) async {
     try {
+      // Get previous state
+      final previousModel = await _localDataSource.getUserSettings(settings.userId);
+      final previousSettings = _mapModelToEntity(previousModel);
+
       final model = _mapEntityToModel(settings);
       await _localDataSource.updateUserSettings(model);
+      
+      await _eventBus.publish(UserSettingsUpdatedEvent(
+        settings: settings,
+        previousSettings: previousSettings,
+      ));
       return Result.success(settings);
     } catch (e) {
       return Result.failure(e as Exception);

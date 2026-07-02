@@ -1,0 +1,12 @@
+# Build configuration for build_runner
+# This file restricts code generation to lib/ only
+
+targets:
+  $default:
+    builders:
+      json_serializable:
+        generate_for:
+          - lib/**
+      mockito:
+        generate_for:
+          - lib/**

@@ -8,22 +8,27 @@
 /// ```dart
 /// final result = await getUserUseCase.call(id);
 /// result.fold(
-///   (failure) => print('Error: $failure'),
-///   (user) => print('Success: ${user.name}'),
+///   onFailure: (error) => print('Error: $error'),
+///   onSuccess: (user) => print('Success: ${user.name}'),
 /// );
 /// ```
 abstract class Result<T> {
   /// Transform result with fold pattern
-  R fold<R>(
-    R Function(Failure failure) onFailure,
-    R Function(T success) onSuccess,
-  );
+  /// Usage: result.fold(onSuccess: (value) => ..., onFailure: (error) => ...)
+  R fold<R>({
+    required R Function(Failure failure) onFailure,
+    required R Function(T success) onSuccess,
+  });
   
   /// Convenient getters
   T? getOrNull();
   Failure? getFailureOrNull();
   bool get isSuccess;
   bool get isFailure;
+  
+  /// Convenience properties for common operations
+  T? get value;
+  Exception? get error;
 }
 
 /// Success case
@@ -33,10 +38,10 @@ class Success<T> extends Result<T> {
   Success(this.data);
   
   @override
-  R fold<R>(
-    R Function(Failure failure) onFailure,
-    R Function(T success) onSuccess,
-  ) => onSuccess(data);
+  R fold<R>({
+    required R Function(Failure failure) onFailure,
+    required R Function(T success) onSuccess,
+  }) => onSuccess(data);
   
   @override
   T? getOrNull() => data;
@@ -49,6 +54,12 @@ class Success<T> extends Result<T> {
   
   @override
   bool get isFailure => false;
+  
+  @override
+  T? get value => data;
+  
+  @override
+  Exception? get error => null;
 }
 
 /// Failure case
@@ -64,10 +75,10 @@ class Failure<T> extends Result<T> {
   });
   
   @override
-  R fold<R>(
-    R Function(Failure failure) onFailure,
-    R Function(T success) onSuccess,
-  ) => onFailure(this);
+  R fold<R>({
+    required R Function(Failure failure) onFailure,
+    required R Function(T success) onSuccess,
+  }) => onFailure(this);
   
   @override
   T? getOrNull() => null;
@@ -80,10 +91,13 @@ class Failure<T> extends Result<T> {
   
   @override
   bool get isFailure => true;
+  
+  @override
+  T? get value => null;
+  
+  @override
+  Exception? get error => exception;
 }
-
-/// Alias for cleaner type hints
-typedef Failure = Failure<dynamic>;
 
 /// Extension to add factory methods for cleaner Result creation
 extension ResultFactory<T> on Result<T> {
@@ -100,34 +114,64 @@ extension ResultFactory<T> on Result<T> {
   }
 }
 
-/// Alternative: Add as direct static methods on Result if using factory constructors
-extension ResultStaticMethods on Result {
-  /// Static success factory
-  static Result<T> success<T>(T data) => Success<T>(data);
-  
-  /// Static failure factory
-  static Result<T> failure<T>(Exception exception, {String? message, String? code}) {
-    return Failure<T>(
-      exception: exception,
-      message: message ?? exception.toString(),
-      code: code,
-    );
-  }
-}
-
 // Add convenience extensions for better API
 extension ResultExtensions<T> on Result<T> {
-  /// Check if result is success
-  bool get isSuccess => this is Success<T>;
+  /// Map the success value to a new result
+  Result<R> map<R>(R Function(T value) transform) {
+    if (this is Success<T>) {
+      return Success<R>(transform((this as Success<T>).data));
+    } else if (this is Failure<T>) {
+      final failure = this as Failure<T>;
+      return Failure<R>(
+        exception: failure.exception,
+        message: failure.message,
+        code: failure.code,
+      );
+    }
+    throw StateError('Unknown Result type');
+  }
   
-  /// Check if result is failure
-  bool get isFailure => this is Failure<T>;
+  /// Map the error to a new error result
+  Result<T> mapError(Exception Function(Exception error) transform) {
+    if (this is Failure<T>) {
+      final failure = this as Failure<T>;
+      return Failure<T>(
+        exception: transform(failure.exception),
+        message: 'Error mapped',
+        code: failure.code,
+      );
+    }
+    return this;
+  }
   
-  /// Get value if success, otherwise null
-  T? getOrNull() {
+  /// FlatMap the success value to a new result
+  Result<R> flatMap<R>(Result<R> Function(T value) transform) {
+    if (this is Success<T>) {
+      return transform((this as Success<T>).data);
+    } else if (this is Failure<T>) {
+      final failure = this as Failure<T>;
+      return Failure<R>(
+        exception: failure.exception,
+        message: failure.message,
+        code: failure.code,
+      );
+    }
+    throw StateError('Unknown Result type');
+  }
+  
+  /// Get value or else compute a default
+  T getOrElse(T Function() defaultValue) {
     if (this is Success<T>) {
       return (this as Success<T>).data;
     }
-    return null;
+    return defaultValue();
+  }
+  
+  /// Recover from error with a computed value
+  Result<T> recover(T Function(Exception error) recover) {
+    if (this is Failure<T>) {
+      return Success<T>(recover((this as Failure<T>).exception));
+    }
+    return this;
   }
 }

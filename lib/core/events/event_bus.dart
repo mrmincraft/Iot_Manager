@@ -29,10 +29,10 @@ typedef EventListener = void Function(AppEvent event);
 abstract class EventBus {
   /// Register a listener for a specific event type
   /// Returns an unsubscribe function
-  Function unsubscribe<T extends AppEvent>(EventListener listener);
+  Function listen<T extends AppEvent>(void Function(T event) handler);
   
-  /// Listen to a specific event type with type-safe handler
-  void listen<T extends AppEvent>(void Function(T event) handler);
+  /// Unsubscribe a listener (alternative to using the returned function from listen)
+  Function unsubscribe<T extends AppEvent>(EventListener listener);
   
   /// Publish an event to all listeners
   Future<void> publish(AppEvent event);

@@ -2,22 +2,26 @@
 // Implémentation de la gestion des logs
 
 import 'dart:convert';
+import 'package:iot_manager/core/events/event_bus.dart';
 import 'package:iot_manager/core/utils/result.dart';
 import 'package:iot_manager/data/datasources/local/log_local_datasource.dart';
 import 'package:iot_manager/data/models/log_entry_model.dart';
 import 'package:iot_manager/domain/entities/log_entry.dart';
+import 'package:iot_manager/domain/events/log_events.dart';
 import 'package:iot_manager/domain/repositories/log_repository.dart';
 
 class LogRepositoryImpl implements LogRepository {
   final LogLocalDataSource _localDataSource;
+  final EventBus _eventBus;
 
-  LogRepositoryImpl(this._localDataSource);
+  LogRepositoryImpl(this._localDataSource, this._eventBus);
 
   @override
   Future<Result<List<LogEntry>, Exception>> getAllLogs() async {
     try {
       final models = await _localDataSource.getAllLogs();
       final logs = models.map(_mapModelToEntity).toList();
+      await _eventBus.publish(LogEntriesLoadedEvent(logs));
       return Result.success(logs);
     } catch (e) {
       return Result.failure(e as Exception);
@@ -39,6 +43,17 @@ class LogRepositoryImpl implements LogRepository {
     try {
       final model = _mapEntityToModel(logEntry);
       await _localDataSource.addLog(model);
+      
+      // Check if this is a critical log
+      if (logEntry.severity.toString().contains('ERROR') ||
+          logEntry.severity.toString().contains('CRITICAL')) {
+        await _eventBus.publish(CriticalLogEvent(
+          logEntry: logEntry,
+          severity: logEntry.severity.toString(),
+        ));
+      }
+      
+      await _eventBus.publish(LogEntryCreatedEvent(logEntry));
       return Result.success(logEntry);
     } catch (e) {
       return Result.failure(e as Exception);
@@ -59,7 +74,15 @@ class LogRepositoryImpl implements LogRepository {
   @override
   Future<Result<void, Exception>> deleteLog(String id) async {
     try {
+      // Get the log before deletion
+      final model = await _localDataSource.getLogById(id);
+      final deletedLog = _mapModelToEntity(model);
+
       await _localDataSource.deleteLog(id);
+      await _eventBus.publish(LogEntryDeletedEvent(
+        logEntryId: id,
+        deletedLogEntry: deletedLog,
+      ));
       return Result.success(null);
     } catch (e) {
       return Result.failure(e as Exception);

@@ -2,22 +2,26 @@
 // Implémentation de la gestion des protocoles
 
 import 'dart:convert';
+import 'package:iot_manager/core/events/event_bus.dart';
 import 'package:iot_manager/core/utils/result.dart';
 import 'package:iot_manager/data/datasources/local/protocol_local_datasource.dart';
 import 'package:iot_manager/data/models/protocol_model.dart';
 import 'package:iot_manager/domain/entities/protocol.dart';
+import 'package:iot_manager/domain/events/protocol_events.dart';
 import 'package:iot_manager/domain/repositories/protocol_repository.dart';
 
 class ProtocolRepositoryImpl implements ProtocolRepository {
   final ProtocolLocalDataSource _localDataSource;
+  final EventBus _eventBus;
 
-  ProtocolRepositoryImpl(this._localDataSource);
+  ProtocolRepositoryImpl(this._localDataSource, this._eventBus);
 
   @override
   Future<Result<List<Protocol>, Exception>> getAllProtocols() async {
     try {
       final models = await _localDataSource.getAllProtocols();
       final protocols = models.map(_mapModelToEntity).toList();
+      await _eventBus.publish(ProtocolsLoadedEvent(protocols));
       return Result.success(protocols);
     } catch (e) {
       return Result.failure(e as Exception);
@@ -28,7 +32,9 @@ class ProtocolRepositoryImpl implements ProtocolRepository {
   Future<Result<Protocol, Exception>> getProtocolById(String id) async {
     try {
       final model = await _localDataSource.getProtocolById(id);
-      return Result.success(_mapModelToEntity(model));
+      final protocol = _mapModelToEntity(model);
+      await _eventBus.publish(ProtocolRetrievedEvent(protocol));
+      return Result.success(protocol);
     } catch (e) {
       return Result.failure(e as Exception);
     }
@@ -39,6 +45,7 @@ class ProtocolRepositoryImpl implements ProtocolRepository {
     try {
       final model = _mapEntityToModel(protocol);
       await _localDataSource.createProtocol(model);
+      await _eventBus.publish(ProtocolAddedEvent(protocol));
       return Result.success(protocol);
     } catch (e) {
       return Result.failure(e as Exception);
@@ -48,8 +55,17 @@ class ProtocolRepositoryImpl implements ProtocolRepository {
   @override
   Future<Result<Protocol, Exception>> updateProtocol(Protocol protocol) async {
     try {
+      // Get previous state
+      final previousModel = await _localDataSource.getProtocolById(protocol.id);
+      final previousProtocol = _mapModelToEntity(previousModel);
+      
+      // Update
       final model = _mapEntityToModel(protocol);
       await _localDataSource.updateProtocol(model);
+      await _eventBus.publish(ProtocolUpdatedEvent(
+        protocol: protocol,
+        previousProtocol: previousProtocol,
+      ));
       return Result.success(protocol);
     } catch (e) {
       return Result.failure(e as Exception);
@@ -59,7 +75,15 @@ class ProtocolRepositoryImpl implements ProtocolRepository {
   @override
   Future<Result<void, Exception>> deleteProtocol(String id) async {
     try {
+      // Get the protocol before deletion
+      final model = await _localDataSource.getProtocolById(id);
+      final deletedProtocol = _mapModelToEntity(model);
+      
       await _localDataSource.deleteProtocol(id);
+      await _eventBus.publish(ProtocolDeletedEvent(
+        protocolId: id,
+        deletedProtocol: deletedProtocol,
+      ));
       return Result.success(null);
     } catch (e) {
       return Result.failure(e as Exception);

@@ -2,22 +2,26 @@
 // Implémentation de la gestion des topics
 
 import 'dart:convert';
+import 'package:iot_manager/core/events/event_bus.dart';
 import 'package:iot_manager/core/utils/result.dart';
 import 'package:iot_manager/data/datasources/local/topic_local_datasource.dart';
 import 'package:iot_manager/data/models/topic_model.dart';
 import 'package:iot_manager/domain/entities/topic.dart';
+import 'package:iot_manager/domain/events/topic_events.dart';
 import 'package:iot_manager/domain/repositories/topic_repository.dart';
 
 class TopicRepositoryImpl implements TopicRepository {
   final TopicLocalDataSource _localDataSource;
+  final EventBus _eventBus;
 
-  TopicRepositoryImpl(this._localDataSource);
+  TopicRepositoryImpl(this._localDataSource, this._eventBus);
 
   @override
   Future<Result<List<Topic>, Exception>> getAllTopics() async {
     try {
       final models = await _localDataSource.getAllTopics();
       final topics = models.map(_mapModelToEntity).toList();
+      await _eventBus.publish(TopicsLoadedEvent(topics));
       return Result.success(topics);
     } catch (e) {
       return Result.failure(e as Exception);
@@ -61,6 +65,7 @@ class TopicRepositoryImpl implements TopicRepository {
     try {
       final model = _mapEntityToModel(topic);
       await _localDataSource.createTopic(model);
+      await _eventBus.publish(TopicCreatedEvent(topic));
       return Result.success(topic);
     } catch (e) {
       return Result.failure(e as Exception);
@@ -70,8 +75,17 @@ class TopicRepositoryImpl implements TopicRepository {
   @override
   Future<Result<Topic, Exception>> updateTopic(Topic topic) async {
     try {
+      // Get previous state
+      final previousModel = await _localDataSource.getTopicById(topic.id);
+      final previousTopic = _mapModelToEntity(previousModel);
+
       final model = _mapEntityToModel(topic);
       await _localDataSource.updateTopic(model);
+      
+      await _eventBus.publish(TopicUpdatedEvent(
+        topic: topic,
+        previousTopic: previousTopic,
+      ));
       return Result.success(topic);
     } catch (e) {
       return Result.failure(e as Exception);
@@ -81,7 +95,15 @@ class TopicRepositoryImpl implements TopicRepository {
   @override
   Future<Result<void, Exception>> deleteTopic(String id) async {
     try {
+      // Get the topic before deletion
+      final model = await _localDataSource.getTopicById(id);
+      final deletedTopic = _mapModelToEntity(model);
+
       await _localDataSource.deleteTopic(id);
+      await _eventBus.publish(TopicDeletedEvent(
+        topicId: id,
+        deletedTopic: deletedTopic,
+      ));
       return Result.success(null);
     } catch (e) {
       return Result.failure(e as Exception);

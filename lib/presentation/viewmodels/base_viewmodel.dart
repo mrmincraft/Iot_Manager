@@ -1,4 +1,6 @@
 import 'package:flutter/foundation.dart';
+import '../../core/events/event_bus.dart';
+import '../../core/events/app_event.dart';
 import '../../core/exceptions/exceptions.dart';
 
 /// Base ViewModel class
@@ -45,8 +47,28 @@ abstract class BaseViewModel extends ChangeNotifier {
   final ValueNotifier<String?> successNotifier = ValueNotifier(null);
   final ValueNotifier<bool> isLoading = ValueNotifier(false);
   
+  EventBus? _eventBus;
+  final List<Function> _unsubscribers = [];
+  
   bool get hasError => errorNotifier.value != null;
   String? get error => errorNotifier.value;
+  
+  /// Set EventBus for event subscriptions
+  /// Should be called before initialize()
+  void setEventBus(EventBus eventBus) {
+    _eventBus = eventBus;
+  }
+  
+  /// Subscribe to a domain event
+  /// Usage: subscribe<ProtocolAddedEvent>((event) { /* handle */ });
+  void subscribe<T extends AppEvent>(void Function(T event) handler) {
+    if (_eventBus == null) {
+      throw Exception('EventBus not set. Call setEventBus() first.');
+    }
+    // Capture unsubscriber function and store it for cleanup
+    final unsubscriber = _eventBus!.listen<T>(handler);
+    _unsubscribers.add(unsubscriber);
+  }
   
   /// Initialize ViewModel
   /// Called when ViewModel is created
@@ -56,6 +78,12 @@ abstract class BaseViewModel extends ChangeNotifier {
   /// Called when ViewModel is disposed
   @override
   void dispose() {
+    // Unsubscribe from all events
+    for (final unsubscriber in _unsubscribers) {
+      unsubscriber();
+    }
+    _unsubscribers.clear();
+    
     errorNotifier.dispose();
     successNotifier.dispose();
     isLoading.dispose();

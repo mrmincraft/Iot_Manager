@@ -11,12 +11,11 @@
 
 import 'package:get_it/get_it.dart';
 import 'package:iot_manager/core/events/event_bus.dart';
+import 'package:iot_manager/core/events/event_bus_impl.dart';
 import 'package:iot_manager/core/utils/database_service.dart';
 import 'package:iot_manager/data/datasources/local/certificate_local_datasource.dart';
-import 'package:iot_manager/data/datasources/local/command_local_datasource.dart';
 import 'package:iot_manager/data/datasources/local/connection_local_datasource.dart';
 import 'package:iot_manager/data/datasources/local/dashboard_local_datasource.dart';
-import 'package:iot_manager/data/datasources/local/device_local_datasource.dart';
 import 'package:iot_manager/data/datasources/local/log_local_datasource.dart';
 import 'package:iot_manager/data/datasources/local/message_local_datasource.dart';
 import 'package:iot_manager/data/datasources/local/protocol_local_datasource.dart';
@@ -38,16 +37,13 @@ import 'package:iot_manager/data/repositories/impl/protocol_repository_impl.dart
 import 'package:iot_manager/data/repositories/impl/topic_repository_impl.dart';
 import 'package:iot_manager/data/repositories/impl/user_settings_repository_impl.dart';
 import 'package:iot_manager/domain/repositories/certificate_repository.dart';
-import 'package:iot_manager/domain/repositories/command_repository.dart';
 import 'package:iot_manager/domain/repositories/connection_repository.dart';
 import 'package:iot_manager/domain/repositories/dashboard_repository.dart';
-import 'package:iot_manager/domain/repositories/device_repository.dart';
 import 'package:iot_manager/domain/repositories/log_repository.dart';
 import 'package:iot_manager/domain/repositories/message_repository.dart';
 import 'package:iot_manager/domain/repositories/protocol_repository.dart';
 import 'package:iot_manager/domain/repositories/topic_repository.dart';
 import 'package:iot_manager/domain/repositories/user_settings_repository.dart';
-import 'package:iot_manager/presentation/viewmodels/base_viewmodel.dart';
 import 'package:iot_manager/domain/usecases/protocol_usecases.dart';
 import 'package:iot_manager/domain/usecases/certificate_usecases.dart';
 import 'package:iot_manager/domain/usecases/connection_usecases.dart';
@@ -83,8 +79,7 @@ Future<void> setupServiceLocator() async {
   getIt.registerSingleton<DatabaseService>(databaseService);
   
   // EventBus (Singleton)
-  // NOTE: EventBusImpl needs to be created - placeholder for interface
-  // getIt.registerSingleton<EventBus>(EventBusImpl());
+  getIt.registerSingleton<EventBus>(EventBusImpl());
   
   // ============================================================
   // DATA LAYER: LocalDataSources (Singletons)
@@ -138,6 +133,7 @@ Future<void> setupServiceLocator() async {
   getIt.registerSingleton<ProtocolRepository>(
     ProtocolRepositoryImpl(
       getIt<ProtocolLocalDataSource>(),
+      getIt<EventBus>(),
     ),
   );
   
@@ -145,6 +141,7 @@ Future<void> setupServiceLocator() async {
   getIt.registerSingleton<CertificateRepository>(
     CertificateRepositoryImpl(
       getIt<CertificateLocalDataSource>(),
+      getIt<EventBus>(),
     ),
   );
   
@@ -152,6 +149,7 @@ Future<void> setupServiceLocator() async {
   getIt.registerSingleton<ConnectionRepository>(
     ConnectionRepositoryImpl(
       getIt<ConnectionLocalDataSource>(),
+      getIt<EventBus>(),
     ),
   );
   
@@ -159,6 +157,7 @@ Future<void> setupServiceLocator() async {
   getIt.registerSingleton<TopicRepository>(
     TopicRepositoryImpl(
       getIt<TopicLocalDataSource>(),
+      getIt<EventBus>(),
     ),
   );
   
@@ -166,6 +165,7 @@ Future<void> setupServiceLocator() async {
   getIt.registerSingleton<MessageRepository>(
     MessageRepositoryImpl(
       getIt<MessageLocalDataSource>(),
+      getIt<EventBus>(),
     ),
   );
   
@@ -173,6 +173,7 @@ Future<void> setupServiceLocator() async {
   getIt.registerSingleton<UserSettingsRepository>(
     UserSettingsRepositoryImpl(
       getIt<UserSettingsLocalDataSource>(),
+      getIt<EventBus>(),
     ),
   );
   
@@ -180,6 +181,7 @@ Future<void> setupServiceLocator() async {
   getIt.registerSingleton<DashboardRepository>(
     DashboardRepositoryImpl(
       getIt<DashboardLocalDataSource>(),
+      getIt<EventBus>(),
     ),
   );
   
@@ -187,6 +189,7 @@ Future<void> setupServiceLocator() async {
   getIt.registerSingleton<LogRepository>(
     LogRepositoryImpl(
       getIt<LogLocalDataSource>(),
+      getIt<EventBus>(),
     ),
   );
   

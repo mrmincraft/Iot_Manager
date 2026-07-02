@@ -1,22 +1,26 @@
 // Repository Implementation: CertificateRepositoryImpl
 // Implémentation de la gestion des certificats
 
+import 'package:iot_manager/core/events/event_bus.dart';
 import 'package:iot_manager/core/utils/result.dart';
 import 'package:iot_manager/data/datasources/local/certificate_local_datasource.dart';
 import 'package:iot_manager/data/models/certificate_model.dart';
 import 'package:iot_manager/domain/entities/certificate.dart';
+import 'package:iot_manager/domain/events/certificate_events.dart';
 import 'package:iot_manager/domain/repositories/certificate_repository.dart';
 
 class CertificateRepositoryImpl implements CertificateRepository {
   final CertificateLocalDataSource _localDataSource;
+  final EventBus _eventBus;
 
-  CertificateRepositoryImpl(this._localDataSource);
+  CertificateRepositoryImpl(this._localDataSource, this._eventBus);
 
   @override
   Future<Result<List<Certificate>, Exception>> getAllCertificates() async {
     try {
       final models = await _localDataSource.getAllCertificates();
       final certificates = models.map(_mapModelToEntity).toList();
+      await _eventBus.publish(CertificatesLoadedEvent(certificates));
       return Result.success(certificates);
     } catch (e) {
       return Result.failure(e as Exception);
@@ -27,7 +31,9 @@ class CertificateRepositoryImpl implements CertificateRepository {
   Future<Result<Certificate, Exception>> getCertificateById(String id) async {
     try {
       final model = await _localDataSource.getCertificateById(id);
-      return Result.success(_mapModelToEntity(model));
+      final certificate = _mapModelToEntity(model);
+      await _eventBus.publish(CertificateRetrievedEvent(certificate));
+      return Result.success(certificate);
     } catch (e) {
       return Result.failure(e as Exception);
     }
@@ -38,6 +44,7 @@ class CertificateRepositoryImpl implements CertificateRepository {
     try {
       final model = _mapEntityToModel(certificate);
       await _localDataSource.createCertificate(model);
+      await _eventBus.publish(CertificateAddedEvent(certificate));
       return Result.success(certificate);
     } catch (e) {
       return Result.failure(e as Exception);
@@ -47,8 +54,17 @@ class CertificateRepositoryImpl implements CertificateRepository {
   @override
   Future<Result<Certificate, Exception>> updateCertificate(Certificate certificate) async {
     try {
+      // Get previous state
+      final previousModel = await _localDataSource.getCertificateById(certificate.id);
+      final previousCertificate = _mapModelToEntity(previousModel);
+
       final model = _mapEntityToModel(certificate);
       await _localDataSource.updateCertificate(model);
+      
+      await _eventBus.publish(CertificateUpdatedEvent(
+        certificate: certificate,
+        previousCertificate: previousCertificate,
+      ));
       return Result.success(certificate);
     } catch (e) {
       return Result.failure(e as Exception);
@@ -58,7 +74,15 @@ class CertificateRepositoryImpl implements CertificateRepository {
   @override
   Future<Result<void, Exception>> deleteCertificate(String id) async {
     try {
+      // Get the certificate before deletion
+      final model = await _localDataSource.getCertificateById(id);
+      final deletedCertificate = _mapModelToEntity(model);
+
       await _localDataSource.deleteCertificate(id);
+      await _eventBus.publish(CertificateDeletedEvent(
+        certificateId: id,
+        deletedCertificate: deletedCertificate,
+      ));
       return Result.success(null);
     } catch (e) {
       return Result.failure(e as Exception);

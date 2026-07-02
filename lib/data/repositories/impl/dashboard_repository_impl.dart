@@ -2,22 +2,26 @@
 // Implémentation de la gestion des tableaux de bord
 
 import 'dart:convert';
+import 'package:iot_manager/core/events/event_bus.dart';
 import 'package:iot_manager/core/utils/result.dart';
 import 'package:iot_manager/data/datasources/local/dashboard_local_datasource.dart';
 import 'package:iot_manager/data/models/dashboard_model.dart';
 import 'package:iot_manager/domain/entities/dashboard.dart';
+import 'package:iot_manager/domain/events/dashboard_events.dart';
 import 'package:iot_manager/domain/repositories/dashboard_repository.dart';
 
 class DashboardRepositoryImpl implements DashboardRepository {
   final DashboardLocalDataSource _localDataSource;
+  final EventBus _eventBus;
 
-  DashboardRepositoryImpl(this._localDataSource);
+  DashboardRepositoryImpl(this._localDataSource, this._eventBus);
 
   @override
   Future<Result<List<Dashboard>, Exception>> getAllDashboards() async {
     try {
       final models = await _localDataSource.getAllDashboards();
       final dashboards = models.map(_mapModelToEntity).toList();
+      await _eventBus.publish(DashboardsLoadedEvent(dashboards));
       return Result.success(dashboards);
     } catch (e) {
       return Result.failure(e as Exception);
@@ -28,7 +32,9 @@ class DashboardRepositoryImpl implements DashboardRepository {
   Future<Result<Dashboard, Exception>> getDashboardById(String id) async {
     try {
       final model = await _localDataSource.getDashboardById(id);
-      return Result.success(_mapModelToEntity(model));
+      final dashboard = _mapModelToEntity(model);
+      await _eventBus.publish(DashboardRetrievedEvent(dashboard));
+      return Result.success(dashboard);
     } catch (e) {
       return Result.failure(e as Exception);
     }
@@ -59,6 +65,7 @@ class DashboardRepositoryImpl implements DashboardRepository {
     try {
       final model = _mapEntityToModel(dashboard);
       await _localDataSource.createDashboard(model);
+      await _eventBus.publish(DashboardCreatedEvent(dashboard));
       return Result.success(dashboard);
     } catch (e) {
       return Result.failure(e as Exception);
@@ -68,8 +75,17 @@ class DashboardRepositoryImpl implements DashboardRepository {
   @override
   Future<Result<Dashboard, Exception>> updateDashboard(Dashboard dashboard) async {
     try {
+      // Get previous state
+      final previousModel = await _localDataSource.getDashboardById(dashboard.id);
+      final previousDashboard = _mapModelToEntity(previousModel);
+
       final model = _mapEntityToModel(dashboard);
       await _localDataSource.updateDashboard(model);
+      
+      await _eventBus.publish(DashboardUpdatedEvent(
+        dashboard: dashboard,
+        previousDashboard: previousDashboard,
+      ));
       return Result.success(dashboard);
     } catch (e) {
       return Result.failure(e as Exception);
@@ -79,7 +95,15 @@ class DashboardRepositoryImpl implements DashboardRepository {
   @override
   Future<Result<void, Exception>> deleteDashboard(String id) async {
     try {
+      // Get the dashboard before deletion
+      final model = await _localDataSource.getDashboardById(id);
+      final deletedDashboard = _mapModelToEntity(model);
+
       await _localDataSource.deleteDashboard(id);
+      await _eventBus.publish(DashboardDeletedEvent(
+        dashboardId: id,
+        deletedDashboard: deletedDashboard,
+      ));
       return Result.success(null);
     } catch (e) {
       return Result.failure(e as Exception);
